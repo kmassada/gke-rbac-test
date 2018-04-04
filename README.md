@@ -40,9 +40,7 @@ kubectl get serviceaccount,rolebinding -n $namespace
 you can certify this: 
 
 ```
-$ kubectl delete pod nginx-6c796d7df9-x6sjg --as system:serviceaccount:$namespace-$app-sa
-Error from server (Forbidden): pods "nginx-6c796d7df9-x6sjg" is forbidden: User "system:serviceaccount:$namespace-$app-sa" cannot get pods in the namespace "default": No policy matched.
-Unknown user "system:serviceaccount:$namespace-$app-sa"
+$ kubectl delete pod $anotherpod --as system:serviceaccount:$namespace:$namespace-$app-sa
 ```
 
 ## test permissions in a pod
@@ -85,4 +83,44 @@ try to delte pods or other resources in `-n default` to observe behavior
 root@$podname:/# curl -ik -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes/api/v1/namespaces/default/pods 
 
 root@$podname:/# curl -ik -X "DELETE" -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes/api/v1/namespaces/default/pods/$podname
+```
+
+## Debug
+
+here are a few troubleshooting steps
+
+### Verify DELETE
+
+validate the successful `DELETE` call by checking the GKE console logs
+
+```
+resource.type="k8s_cluster"
+protoPayload.methodName="io.k8s.core.v1.pods.delete"
+```
+
+### Verify correct token is used
+
+validate the right token is mounted
+
+```
+volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+name: $namespace-$app-sa
+```
+
+### legacy ABAC
+
+unusual behavior?
+
+Verify legacyAbac
+
+```
+gcloud container clusters describe $clustername --zone=$zone --format json | jq .legacyAbac
+{}
+```
+
+if true alter it
+
+```
+gcloud container clusters update $clustername --zone=$zone --no-enable-legacy-authorizatio
 ```
